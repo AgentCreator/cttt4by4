@@ -1,6 +1,8 @@
-
+//
+// Created by Oleksander Krainiak on 14.05.2026.
+//
 #include <assert.h>
-#include "lib.c"
+#include "../lib.c"
 
 int main(void) {
     struct Board b = {0, 0};
