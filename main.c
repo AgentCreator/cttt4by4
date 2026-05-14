@@ -16,6 +16,9 @@ int main(void) {
     fflush(stdout);
     struct BotState q = solve(b, X, &map, 0);
     printf("solved\n");
-    helptext();
+    // helptext();
+    // while (true) {
+    //
+    // }
     // printf("%d", q.result);
 }
