@@ -30,6 +30,11 @@ int main() {
     struct Board b2 = {};
     place(&b2, 5, X);
     place(&b2, 10, X);
+    place(&b2, 0, X);
+    place(&b2, 15, X);
     b.moves |= b2.moves;
     assert(result(b) == X);
+    b.moves ^= b2.moves;
+    assert(result(b) == O);
+
 }
