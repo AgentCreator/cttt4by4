@@ -3,6 +3,7 @@
 #include "lib.c"
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 void helptext(void) {
     printf("triple t cli\n");
@@ -14,12 +15,13 @@ void helptext(void) {
     printf("<num> - place an X/O at <num>\n");
 }
 
-void print_result(const struct Board board) {
+bool print_result(const struct Board board) {
     const int r = result(board);
-    if (!r) return;
+    if (!r) return false;
     if (r == X) printf("X won!\n");
     else if (r == O) printf("O won!\n");
     else printf("draw!\n");
+    return true;
 }
 
 void assign_players(const char *command, enum Player *bot) {
@@ -31,12 +33,15 @@ void assign_players(const char *command, enum Player *bot) {
 
 
 int main(void) {
+    struct timespec start, end;
     struct Board b = {0, 0};
     struct HashTable *map = calloc(1, sizeof(struct HashTable));
     printf("solving...\n");
     fflush(stdout);
+    timespec_get(&start, TIME_UTC);
     solve(b, X, map);
-    printf("solved\n");
+    timespec_get(&end, TIME_UTC);
+    printf("solved (in %fs)\n", (double)end.tv_sec - (double)start.tv_sec + (double)(end.tv_nsec - start.tv_nsec) * 1e-9);
     helptext();
     enum Player curPlayer = 0;
     enum Player bot = 0;
@@ -53,15 +58,14 @@ int main(void) {
             b = (struct Board){0, 0};
             bot = 0;
             curPlayer = 0;
-        }
-        else if (input[0] == 's') {
+        } else if (input[0] == 's') {
             assign_players(input, &bot);
             curPlayer = X;
             printf("outcome: 0\n");
             if (bot == X) {
                 const int best_move = bestMove(map, b, curPlayer, nullptr);
                 place(&b, best_move, curPlayer);
-                curPlayer*=-1;
+                curPlayer *= -1;
             }
             display(b);
         } else if (input[0] == 'b') display(b);
@@ -73,16 +77,19 @@ int main(void) {
             char *left;
             long i = strtol(input, &left, 10);
             if (left == input) continue;
-            if (!get(b, i)) place(&b, i, curPlayer);
-            print_result(b);
-            curPlayer*=-1;
+            if (get(b, i)) continue;
+            place(&b, i, curPlayer);
+            if (result(b)) goto res;
+            curPlayer *= -1;
             int outcome;
             const int best_move = bestMove(map, b, curPlayer, &outcome);
             place(&b, best_move, curPlayer);
 
-            curPlayer*=-1;
+            curPlayer *= -1;
             printf("outcome: %d\n", outcome);
+            res:
             display(b);
+            print_result(b);
         }
     }
     table_free(map);

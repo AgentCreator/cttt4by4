@@ -172,18 +172,17 @@ bool cache_lookup(const struct HashTable *h, const struct BotState s, struct Bot
     };
 
     for (int i = 0; i < 4; ++i) {
+        s2.board_repr = map_board(s2.board_repr, rot90);
         if ((res = table_find(h, s2))) {
             struct BotState new_s = s;
             new_s.result = res->result;
             *out = new_s;
             return true;
         }
-        s2.board_repr = map_board(s2.board_repr, rot90);
     }
     out = nullptr;
     return false;
 }
-#undef CHECK
 
 struct BotState solve(const struct Board b, enum Player p, struct HashTable *cache) {
     struct BotState res = {
@@ -234,7 +233,7 @@ int bestMove(const struct HashTable *map, const struct Board b, const enum Playe
 
         struct BotState w;
         assert(cache_lookup(map, (struct BotState){
-        .board_repr = b}, &w));
+            .board_repr = new_b}, &w));
         if ((curPlayer == X && w.result > bestResult) || (curPlayer == O && w.result < bestResult)) {
             bestResult = (int) w.result;
             bestMove = i;

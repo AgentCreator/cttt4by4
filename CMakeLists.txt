@@ -8,11 +8,11 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 add_library(flags INTERFACE)
 target_compile_options(flags INTERFACE
         -Wall -Wextra -Wpedantic -O3
-#        -fsanitize=address,undefined
-#        -fno-omit-frame-pointer
+        #        -fsanitize=address,undefined
+        #        -fno-omit-frame-pointer
 )
 #        -g)
-target_link_options(flags INTERFACE -fsanitize=address,undefined)
+#target_link_options(flags INTERFACE -fsanitize=address,undefined)
 
 add_executable(cttt4by4 main.c)
 add_executable(hashtable_test tests/hashtable_test.c)
