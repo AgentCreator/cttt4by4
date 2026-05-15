@@ -100,6 +100,7 @@ bool bot_state_eql(struct BotState a, struct BotState b) {
 }
 
 #define KNUTH_CONSTANT 0x9E3779B1
+
 size_t hash(struct BotState s) {
     unsigned long res = to_int(s.board_repr);
     return res * KNUTH_CONSTANT; // apparently there is a constant that makes all hashes equally distributed, cool
@@ -112,6 +113,7 @@ struct Slice {
 };
 
 #define TABLE_SIZE 1<<20
+
 struct HashTable {
     struct Slice table[TABLE_SIZE];
 };
@@ -119,7 +121,6 @@ struct HashTable {
 void table_put(struct HashTable *h, const struct BotState s) {
     size_t hashed = hash(s);
     struct Slice *sl = &h->table[hashed % ((TABLE_SIZE) - 1)];
-    // size_t prev_size = sl->size;
     if (sl->size >= sl->capacity) {
         sl->capacity = sl->capacity == 0 ? 2 : sl->capacity * 2;
         struct BotState *new_s = realloc(sl->s, sl->capacity * sizeof(struct BotState));
@@ -131,7 +132,6 @@ void table_put(struct HashTable *h, const struct BotState s) {
     }
     sl->s[sl->size] = s;
     sl->size++;
-
 }
 
 void table_free(const struct HashTable *h) {
@@ -150,21 +150,54 @@ struct BotState *table_find(const struct HashTable *h, const struct BotState s) 
     return nullptr;
 }
 
+struct Board map_board(const struct Board inp, const int *transform) {
+    struct Board res = {0, 0};
+    for (int i = 0; i < 16; ++i) {
+        unsigned mask_bit = inp.mask >> i & 1u;
+        unsigned moves_bit = inp.moves >> i & 1u;
+        res.mask |= mask_bit << (transform[i] - 1);
+        res.moves |= moves_bit << (transform[i] - 1);
+    }
+    return res;
+}
+
+bool cache_lookup(const struct HashTable *h, const struct BotState s, struct BotState *out) {
+    struct BotState s2 = s;
+    struct BotState *res;
+    constexpr int rot90[] = {
+        4, 8, 12, 16,
+        3, 7, 11, 15,
+        2, 6, 10, 14,
+        1, 5, 9, 13,
+    };
+
+    for (int i = 0; i < 4; ++i) {
+        if ((res = table_find(h, s2))) {
+            struct BotState new_s = s;
+            new_s.result = res->result;
+            *out = new_s;
+            return true;
+        }
+        s2.board_repr = map_board(s2.board_repr, rot90);
+    }
+    out = nullptr;
+    return false;
+}
+#undef CHECK
 
 struct BotState solve(const struct Board b, enum Player p, struct HashTable *cache) {
     struct BotState res = {
         .board_repr = b,
-        .result = (signed char)(-p*2) // garbage
+        .result = (signed char) (-p * 2) // garbage
     };
-    struct BotState *q;
-    if ((q = table_find(cache, res))) {
-
-        return *q;
+    struct BotState q = {};
+    if (cache_lookup(cache, res, &q)) {
+        return q;
     }
     int r;
     if ((r = result(b))) {
         if (r == DRAW) r = 0;
-        res.result = (signed char)r;
+        res.result = (signed char) r;
         table_put(cache, res);
         return res;
     }
@@ -191,20 +224,19 @@ struct BotState solve(const struct Board b, enum Player p, struct HashTable *cac
     return res;
 }
 
-int bestMove(const struct HashTable *map, const struct Board b, const enum Player curPlayer, int* outcome) {
+int bestMove(const struct HashTable *map, const struct Board b, const enum Player curPlayer, int *outcome) {
     int bestMove = -1;
-    int bestResult = -2*curPlayer;
+    int bestResult = -2 * curPlayer;
     for (int i = 0; i < 16; ++i) {
         if (get(b, i)) continue;
         struct Board new_b = b;
         place(&new_b, i, curPlayer);
 
-        struct BotState* w = table_find(map, (struct BotState){
-                                            .board_repr = new_b,
-                                        });
-        assert(w);
-        if ((curPlayer == X && w->result > bestResult) || (curPlayer == O && w->result < bestResult)) {
-            bestResult = (int)w->result;
+        struct BotState w;
+        assert(cache_lookup(map, (struct BotState){
+        .board_repr = b}, &w));
+        if ((curPlayer == X && w.result > bestResult) || (curPlayer == O && w.result < bestResult)) {
+            bestResult = (int) w.result;
             bestMove = i;
         }
     }

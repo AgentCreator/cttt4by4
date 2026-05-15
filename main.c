@@ -14,12 +14,12 @@ void helptext(void) {
     printf("<num> - place an X/O at <num>\n");
 }
 
-void print_result(struct Board board) {
-    int r = result(board);
+void print_result(const struct Board board) {
+    const int r = result(board);
     if (!r) return;
-    if (r == X) printf("X won!");
-    else if (r == O) printf("O won!");
-    else printf("draw!");
+    if (r == X) printf("X won!\n");
+    else if (r == O) printf("O won!\n");
+    else printf("draw!\n");
 }
 
 void assign_players(const char *command, enum Player *bot) {
