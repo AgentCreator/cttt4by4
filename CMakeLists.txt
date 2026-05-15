@@ -12,14 +12,17 @@ target_compile_options(flags INTERFACE
 #        -fno-omit-frame-pointer
 )
 #        -g)
-#target_link_options(flags INTERFACE -fsanitize=address,undefined)
+target_link_options(flags INTERFACE -fsanitize=address,undefined)
 
-add_executable(cttt4by4 main.c )
+add_executable(cttt4by4 main.c)
 add_executable(hashtable_test tests/hashtable_test.c)
 add_executable(board_test tests/board_test.c)
+add_executable(solve_test tests/solve_test.c)
 target_link_libraries(cttt4by4 PRIVATE flags)
 target_link_libraries(hashtable_test PRIVATE flags)
+target_link_libraries(solve_test PRIVATE flags)
 target_link_libraries(board_test PRIVATE flags)
 
 add_test(NAME hashtable_test COMMAND hashtable_test)
 add_test(NAME board_test COMMAND board_test)
+add_test(NAME solve_test COMMAND solve_test)

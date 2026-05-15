@@ -4,8 +4,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-
-
+#include <assert.h>
 
 #define DRAW 2
 
@@ -92,21 +91,17 @@ void display(const struct Board b) {
 }
 
 struct BotState {
-    enum Player move;
     struct Board board_repr;
     signed char result; // X (1), O (-1), or DRAW (0, in this case)
 };
 
 bool bot_state_eql(struct BotState a, struct BotState b) {
-    return a.move == b.move && to_int(a.board_repr) == to_int(b.board_repr);
+    return to_int(a.board_repr) == to_int(b.board_repr);
 }
 
 #define KNUTH_CONSTANT 0x9E3779B1
 size_t hash(struct BotState s) {
     unsigned long res = to_int(s.board_repr);
-    // everybody was using xor here https://stackoverflow.com/questions/13389631/whats-a-good-hash-function-for-struct-with-3-unsigned-chars-and-an-int-for-uno
-    // so i decided to use it too
-    res ^= s.move;
     return res * KNUTH_CONSTANT; // apparently there is a constant that makes all hashes equally distributed, cool
 }
 
@@ -116,13 +111,14 @@ struct Slice {
     struct BotState *s __attribute__((counted_by(capacity)));
 };
 
+#define TABLE_SIZE 1<<20
 struct HashTable {
-    struct Slice table[1 << 16];
+    struct Slice table[TABLE_SIZE];
 };
 
 void table_put(struct HashTable *h, const struct BotState s) {
     size_t hashed = hash(s);
-    struct Slice *sl = &h->table[hashed % ((1 << 16) - 1)];
+    struct Slice *sl = &h->table[hashed % ((TABLE_SIZE) - 1)];
     // size_t prev_size = sl->size;
     if (sl->size >= sl->capacity) {
         sl->capacity = sl->capacity == 0 ? 2 : sl->capacity * 2;
@@ -139,14 +135,14 @@ void table_put(struct HashTable *h, const struct BotState s) {
 }
 
 void table_free(const struct HashTable *h) {
-    for (int i = 0; i < 1 << 16; ++i) {
+    for (int i = 0; i < TABLE_SIZE; ++i) {
         free(h->table[i].s);
     }
 }
 
 struct BotState *table_find(const struct HashTable *h, const struct BotState s) {
     const size_t hashed = hash(s);
-    const struct Slice *sl = &h->table[hashed % ((1 << 16) - 1)];
+    const struct Slice *sl = &h->table[hashed % ((TABLE_SIZE) - 1)];
     for (size_t i = 0; i < sl->size; ++i) {
         struct BotState *q = &sl->s[i];
         if (bot_state_eql(*q, s)) return q;
@@ -155,20 +151,21 @@ struct BotState *table_find(const struct HashTable *h, const struct BotState s) 
 }
 
 
-struct BotState solve(const struct Board b, enum Player p, struct HashTable *cache, int depth) {
+struct BotState solve(const struct Board b, enum Player p, struct HashTable *cache) {
     struct BotState res = {
-        .move = p,
         .board_repr = b,
         .result = (signed char)(-p*2) // garbage
     };
     struct BotState *q;
     if ((q = table_find(cache, res))) {
+
         return *q;
     }
     int r;
     if ((r = result(b))) {
         if (r == DRAW) r = 0;
         res.result = (signed char)r;
+        table_put(cache, res);
         return res;
     }
 
@@ -178,16 +175,13 @@ struct BotState solve(const struct Board b, enum Player p, struct HashTable *cac
         if (get(b, i)) continue;
         struct Board new_board = b;
         place(&new_board, i, p);
-        const struct BotState qq = solve(new_board, -p, cache, depth + 1);
+        const struct BotState qq = solve(new_board, -p, cache);
         if (!is_init) {
             best_move = qq;
             is_init = true;
         } else {
             if ((p == X && qq.result > best_move.result) ||
                 (p == O && qq.result < best_move.result)) {
-                if (best_move.result == p) {
-                    break;
-                }
                 best_move = qq;
             }
         }
@@ -195,4 +189,25 @@ struct BotState solve(const struct Board b, enum Player p, struct HashTable *cac
     res.result = best_move.result;
     table_put(cache, res);
     return res;
+}
+
+int bestMove(const struct HashTable *map, const struct Board b, const enum Player curPlayer, int* outcome) {
+    int bestMove = -1;
+    int bestResult = -2*curPlayer;
+    for (int i = 0; i < 16; ++i) {
+        if (get(b, i)) continue;
+        struct Board new_b = b;
+        place(&new_b, i, curPlayer);
+
+        struct BotState* w = table_find(map, (struct BotState){
+                                            .board_repr = new_b,
+                                        });
+        assert(w);
+        if ((curPlayer == X && w->result > bestResult) || (curPlayer == O && w->result < bestResult)) {
+            bestResult = (int)w->result;
+            bestMove = i;
+        }
+    }
+    if (outcome) *outcome = bestResult;
+    return bestMove;
 }

@@ -14,11 +14,9 @@ int main(void) {
     struct HashTable table = {};
 
     const auto q = (struct BotState){
-        .move = X,
         .board_repr = b,
         .result = X};
     const auto q2 = (struct BotState){
-        .move = X,
         .board_repr = qq,
         .result = X};
     struct BotState* ptr = table_find(&table, q);
