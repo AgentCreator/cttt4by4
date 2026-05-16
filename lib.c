@@ -99,11 +99,10 @@ bool bot_state_eql(struct BotState a, struct BotState b) {
     return to_int(a.board_repr) == to_int(b.board_repr);
 }
 
-#define KNUTH_CONSTANT 0x9E3779B1
 
 size_t hash(struct BotState s) {
     unsigned long res = to_int(s.board_repr);
-    return res * KNUTH_CONSTANT; // apparently there is a constant that makes all hashes equally distributed, cool
+    return res;
 }
 
 struct Slice {
@@ -152,6 +151,7 @@ struct BotState *table_find(const struct HashTable *h, const struct BotState s) 
 
 struct Board map_board(const struct Board inp, const int *transform) {
     struct Board res = {0, 0};
+#pragma GCC unroll 16
     for (int i = 0; i < 16; ++i) {
         unsigned mask_bit = inp.mask >> i & 1u;
         unsigned moves_bit = inp.moves >> i & 1u;
@@ -170,21 +170,20 @@ bool cache_lookup(const struct HashTable *h, const struct BotState s, struct Bot
         2, 6, 10, 14,
         1, 5, 9, 13,
     };
-
     for (int i = 0; i < 4; ++i) {
-        s2.board_repr = map_board(s2.board_repr, rot90);
         if ((res = table_find(h, s2))) {
             struct BotState new_s = s;
             new_s.result = res->result;
             *out = new_s;
             return true;
         }
+        s2.board_repr = map_board(s2.board_repr, rot90);
     }
-    out = nullptr;
+    // out = nullptr;
     return false;
 }
 
-struct BotState solve(const struct Board b, enum Player p, struct HashTable *cache) {
+struct BotState solve(const struct Board b, const enum Player p, struct HashTable *cache) {
     struct BotState res = {
         .board_repr = b,
         .result = (signed char) (-p * 2) // garbage
@@ -204,6 +203,7 @@ struct BotState solve(const struct Board b, enum Player p, struct HashTable *cac
     bool is_init = false;
     struct BotState best_move = {};
     for (int i = 0; i < 16; ++i) {
+        if (best_move.result == p) break;
         if (get(b, i)) continue;
         struct Board new_board = b;
         place(&new_board, i, p);
@@ -211,11 +211,9 @@ struct BotState solve(const struct Board b, enum Player p, struct HashTable *cac
         if (!is_init) {
             best_move = qq;
             is_init = true;
-        } else {
-            if ((p == X && qq.result > best_move.result) ||
-                (p == O && qq.result < best_move.result)) {
-                best_move = qq;
-            }
+        } else if ((p == X && qq.result > best_move.result) ||
+                   (p == O && qq.result < best_move.result)) {
+            best_move = qq;
         }
     }
     res.result = best_move.result;
@@ -234,8 +232,8 @@ int bestMove(const struct HashTable *map, const struct Board b, const enum Playe
         struct BotState w;
         assert(cache_lookup(map, (struct BotState){
             .board_repr = new_b}, &w));
-        if ((curPlayer == X && w.result > bestResult) || (curPlayer == O && w.result < bestResult)) {
-            bestResult = (int) w.result;
+        if ((curPlayer == X && w.result > bestResult) || (curPlayer == O && w.result < bestResult)) { // NOLINT
+            bestResult = (int) w.result; //NOLINT
             bestMove = i;
         }
     }

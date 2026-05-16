@@ -35,7 +35,7 @@ void assign_players(const char *command, enum Player *bot) {
 int main(void) {
     struct timespec start, end;
     struct Board b = {0, 0};
-    struct HashTable *map = calloc(1, sizeof(struct HashTable));
+    struct HashTable *map = malloc( sizeof(struct HashTable));
     printf("solving...\n");
     fflush(stdout);
     timespec_get(&start, TIME_UTC);
